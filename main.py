@@ -18,6 +18,7 @@ class Sudoku:
                 else:
                     self.filled += 1
                     self.domain_list[i][j] = set()
+                    self.forward_check(i, j, board[i][j])
 
     def get_next_position(self, line, col):
         #verific daca e liber
@@ -50,7 +51,7 @@ class Sudoku:
                 continue 
             change_removed_domain(i, col)
                     
-        for i in range(line // 3 * 3, line // 3 * 3 + 3):
+        for i in range(lin // 3 * 3, lin // 3 * 3 + 3):
             for j in range(col // 3 * 3, col // 3 * 3 + 3):
                 if i == lin or j == col: #am mers deja o data pe linii si coloane
                     continue 

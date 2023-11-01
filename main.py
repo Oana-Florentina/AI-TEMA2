@@ -1,9 +1,9 @@
 import numpy as np
 
-
 class Sudoku:
     def __init__(self, board, even_list):
         self.board = np.array(board)
+        self.visited = np.zeros(self.board.shape, dtype=bool) #for mrv heuristic
         self.domain_list = [[set() for j in range(9)] for i in range(9)]
         self.removed_domain = [[[] for j in range(9)] for i in range(9)] #for forward check 
         self.filled = 0
@@ -20,26 +20,29 @@ class Sudoku:
                     self.domain_list[i][j] = set()
                     self.forward_check(i, j, board[i][j])
 
-    def get_next_position(self, line, col):
-        #verific daca e liber
-        for j in range(col + 1, 9):
-            if self.board[line][j] == 0:
-                return line, j
+    def get_next_position(self, line, col): #Minimum remaining values
+        next_line, next_col = 0, 0
+        minimum_remaining_values = 10
 
-        for i in range(line + 1, 9):
+        for i in range(9):
             for j in range(9):
-                if self.board[i][j] == 0:
-                    return i, j
-        return 0, 0
+                if self.board[i][j] != 0 or self.visited[i][j] is True:
+                    continue
+                domain = self.domain_list[i][j] - set(self.removed_domain[i][j])
+                if len(domain) < minimum_remaining_values:
+                    minimum_remaining_values = len(domain)
+                    next_line, next_col = i, j
+
+        return next_line, next_col
 
     def print_solution(self):
         print(self.board)
 
     def forward_check(self, lin, col, val, revert=False):
         #revert - true daca aplic forward check, fals daca trebuie sa restitui schimbarile
-        change_removed_domain = lambda i, j: self.removed_domain[i][j].append(val)
+        change_removed_domain = lambda i, j: self.removed_domain[i][j].append(val) if self.board[i][j] == 0 else None
         if revert is True:
-            change_removed_domain = lambda i, j: self.removed_domain[i][j].remove(val)
+            change_removed_domain = lambda i, j: self.removed_domain[i][j].remove(val) if self.board[i][j] == 0 else None
 
         for j in range(9):
             if j == col:
@@ -63,8 +66,9 @@ class Sudoku:
 
         for val in forward_check_domain:
             if Validator.is_valid_move(self.board, lin, col, val):
-                self.board[lin][col]=val
+                self.board[lin][col] = val
                 self.filled += 1
+                self.visited[lin][col] = True
                 if self.filled == self.CELL_COUNT:
                     self.print_solution()
                     exit(0)
@@ -76,6 +80,7 @@ class Sudoku:
 
                 self.board[lin][col] = 0
                 self.filled -= 1
+                self.visited[lin][col] = False
                 self.forward_check(lin, col, val, revert=True) 
 
 
@@ -116,7 +121,7 @@ sudoku_board = [
     [3, 4, 5, 2, 8, 6, 1, 7, 9]
 ]
 even_list = []
-s = Sudoku(solvable_sudoku, even_list)
+s = Sudoku(sudoku_board, even_list)
 line, col = s.get_next_position(0, -1)
 
 s.solve(line, col)

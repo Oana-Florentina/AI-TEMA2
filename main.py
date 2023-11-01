@@ -32,6 +32,38 @@ class Sudoku:
     def print_solution(self):
         print(self.board)
 
+    def forward_check(self, lin, col, val, revert=False):
+        for j in range(9):
+            if j == col:
+                continue
+            if not revert: 
+                if val in self.domain_list[lin][j]:
+                    self.domain_list[lin][j].remove(val)
+            else:
+                if Validator.is_valid_move(self.board, lin, j, val):
+                    self.domain_list[lin][j].append(val)
+        for i in range(9):
+            if i == lin:
+                continue 
+            if not revert:
+                if val in self.domain_list[i][col]:
+                    self.domain_list[i][col].remove(val)
+            else:
+                if Validator.is_valid_move(self.board, i, col, val):
+                    self.domain_list[i][col].append(val)
+                    
+        for i in range(line // 3 * 3, line // 3 * 3 + 3):
+            for j in range(col // 3 * 3, col // 3 * 3 + 3):
+                if i == lin and j == col:
+                    continue 
+                if not revert:
+                    if val in self.domain_list[i][j]:
+                        self.domain_list[i][j].remove(val)
+                else:
+                    if Validator.is_valid_move(self.board, i, j, val):
+                        self.domain_list[i][j].append(val)
+
+
     def solve(self, lin, col):
         for val in self.domain_list[lin][col]:
             if Validator.is_valid_move(self.board, lin, col, val):
@@ -40,12 +72,15 @@ class Sudoku:
                 if self.filled == self.CELL_COUNT:
                     self.print_solution()
                     exit(0)
+
+                self.forward_check(lin, col, val)
                 next_line, next_col = self.get_next_position(lin, col)
 
                 self.solve(next_line, next_col)
 
                 self.board[lin][col] = 0
                 self.filled -= 1
+                self.forward_check(lin, col, val, revert=True)
 
 
 class Validator:

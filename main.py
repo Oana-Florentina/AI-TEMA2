@@ -1,4 +1,6 @@
 import numpy as np
+import time
+from queue import Queue
 
 class Sudoku:
     def __init__(self, board, even_list):
@@ -20,6 +22,9 @@ class Sudoku:
                     self.domain_list[i][j] = set()
                     self.forward_check(i, j, board[i][j])
 
+        self.apply_arc_consistency()
+
+
     def get_next_position(self, line, col): #Minimum remaining values
         next_line, next_col = 0, 0
         minimum_remaining_values = 10
@@ -35,8 +40,11 @@ class Sudoku:
 
         return next_line, next_col
 
+
     def print_solution(self):
         print(self.board)
+        print(f"Time: {time.time() - start_time} seconds")
+
 
     def forward_check(self, lin, col, val, revert=False):
         #revert - true daca aplic forward check, fals daca trebuie sa restitui schimbarile
@@ -59,6 +67,59 @@ class Sudoku:
                 if i == lin or j == col: #am mers deja o data pe linii si coloane
                     continue 
                 change_removed_domain(i, j)
+
+
+    def get_neighbours(self, i, j):
+        neighbours = []
+        #adaug vecinii pe linii si coloane
+        for k in range(9):
+            if (i, j) != (i, k) and self.board[i][k] == 0:
+                neighbours.append((i, k))
+            if (k, j) != (i, j) and self.board[k][j] == 0:
+                neighbours.append((k, j))
+        #adaug vecinii din patrat
+        for square_i in range(i // 3 * 3, i // 3 * 3 + 3):
+            for square_j in range(j // 3 * 3, j // 3 * 3 + 3):
+                if i == square_i or j == square_j or self.board[square_i][square_j] != 0:
+                    continue 
+                neighbours.append((square_i, square_j))
+        return neighbours
+
+
+    def remove_inconsistent_values(self, cell_0, cell_1):
+        removed = set()
+
+        domain_0 = self.domain_list[cell_0[0]][cell_0[1]] - set(self.removed_domain[cell_0[0]][cell_0[1]])
+        for val_0 in domain_0:
+            is_removed = True
+            domain_1 = self.domain_list[cell_1[0]][cell_1[1]] - set(self.removed_domain[cell_1[0]][cell_1[1]])
+            for val_1 in domain_1:
+                if val_1 != val_0: 
+                    is_removed = False
+            if is_removed:
+                removed.add(val_0)
+
+        self.domain_list[cell_0[0]][cell_0[1]] = self.domain_list[cell_0[0]][cell_0[1]] - removed
+        
+        return len(removed) > 0
+
+
+    def apply_arc_consistency(self):
+        #initializez coada cu arce
+        q = Queue()
+        for i in range(9):
+            for j in range(9):
+                if self.board[i][j] != 0:
+                    continue
+                for neighbour in self.get_neighbours(i, j):
+                    q.put(((i, j), neighbour))
+                
+        while not q.empty():
+            cell_0, cell_1 = q.get()
+            if self.remove_inconsistent_values(cell_0, cell_1):
+                for neighbour in self.get_neighbours(cell_0[0], cell_0[1]):
+                    q.put((neighbour, cell_0))
+
 
 
     def solve(self, lin, col):
@@ -97,8 +158,7 @@ class Validator:
     def is_valid_move(board, line, col, val):
         return Validator.is_valid_line(board,line,val) and Validator.is_valid_column(board,col,val) and Validator.is_valid_square(board,line,col,val)
 
-
-solvable_sudoku = [
+other_matrix = [
     [5, 0, 0, 0, 7, 0, 0, 0, 0],
     [6, 7, 0, 1, 0, 5, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 6, 0],
@@ -109,19 +169,29 @@ solvable_sudoku = [
     [0, 0, 0, 4, 1, 9, 0, 0, 0],
     [0, 0, 0, 0, 8, 0, 0, 7, 9]
 ]
-sudoku_board = [
-    [5, 3, 4, 6, 7, 8, 9, 0, 2],
-    [6, 7, 2, 0, 9, 5, 3, 0, 8],
-    [1, 9, 8, 3, 4, 2, 5, 6, 7],
-    [8, 5, 9, 7, 6, 1, 4, 2, 3],
-    [4, 2, 6, 8, 5, 3, 7, 9, 1],
-    [7, 1, 3, 9, 2, 4, 8, 5, 6],
-    [9, 6, 1, 5, 3, 7, 2, 8, 4],
-    [2, 8, 7, 4, 1, 9, 6, 3, 5],
-    [3, 4, 5, 2, 8, 6, 1, 7, 9]
+lab_matrix = [
+    [8, 4, 0, 0, 5, 0, 0, 0, 0],
+    [3, 0, 0, 6, 0, 8, 0, 4, 0],
+    [0, 0, 0, 4, 0, 9, 0, 0, 0],
+    [0, 2, 3, 0, 0, 0, 9, 8, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 4],
+    [0, 9, 8, 0, 0, 0, 1, 6, 0],
+    [0, 0, 0, 5, 0, 3, 0, 0, 0],
+    [0, 3, 0, 1, 0, 6, 0, 0, 7],
+    [0, 0, 0, 0, 2, 0, 0, 1, 3]
 ]
-even_list = []
-s = Sudoku(sudoku_board, even_list)
+even_list = [
+    (0, 6),
+    (2, 2), (2, 8),
+    (3, 4),
+    (4, 3), (4, 5),
+    (5, 4),
+    (6, 0), (6, 6),
+    (8, 2)
+]
+
+s = Sudoku(lab_matrix, even_list)
 line, col = s.get_next_position(0, -1)
 
+start_time = time.time()
 s.solve(line, col)
